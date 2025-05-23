@@ -11,14 +11,14 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=postgresql://user:password@db:5432/mydb
+      - DATABASE_URL=postgresql://admin:password@db:5432/mydb
     depends_on:
-      - postgres
+      - db
 
-  postgres:
+  db:
     image: postgres
     environment:
-      - POSTGRES_USER=postgres
+      - POSTGRES_USER=admin
       - POSTGRES_PASSWORD=password
       - POSTGRES_DB=mydb
     ports:
@@ -34,7 +34,7 @@ services:
     ports:
       - "54321:80"
     depends_on:
-      - postgres
+      - db
 
 volumes:
   postgres_data:
