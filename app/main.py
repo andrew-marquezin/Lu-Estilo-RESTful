@@ -34,7 +34,24 @@ app.include_router(auth_router, prefix="/auth")
 #     return db_user
 
 
-@app.get("/users")
-async def read_user(session: SessionDep):
+@app.get("/clients")
+async def read_user(session: SessionDep,
+                    offset: int = 0,
+                    limit: int = 10,):
     users = session.exec(select(User)).all()
     return users
+
+
+@app.get("/clients/{id}")
+async def read_one_user(id: int, session: SessionDep):
+    ...
+
+
+@app.put("/clients/{id}")
+async def update_user(id: int, user: dict, session: SessionDep):
+    ...
+
+
+@app.delete("/clients/{id}")
+async def delete_user(id: int, session: SessionDep):
+    ...
