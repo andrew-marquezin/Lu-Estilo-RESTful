@@ -37,8 +37,6 @@ async def register_user(
     hashed_password = get_password_hash(user.password)
     db_user = User(
         email=user.email,
-        name=user.name,
-        cpf=user.cpf,
         hashed_password=hashed_password
     )
     session.add(db_user)

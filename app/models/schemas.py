@@ -12,7 +12,11 @@ class OrderStatus(Enum):
 
 
 class CreateUser(SQLModel):
-    name: str
-    cpf: str
     email: EmailStr
     password: str
+
+
+class CreateClient(SQLModel):
+    name: str
+    email: EmailStr
+    cpf: str

@@ -11,12 +11,19 @@ class User(SQLModel, table=True):
     __tablename__ = "users"
 
     id: Optional[int] = Field(default=None, primary_key=True, index=True)
+    email: str
+    hashed_password: str
+
+
+class Client(SQLModel, table=True):
+    __tablename__ = "clients"
+
+    id: Optional[int] = Field(default=None, primary_key=True, index=True)
     name: str
     email: str
     cpf: str
-    hashed_password: str
 
-    orders: list["Order"] = Relationship(back_populates="user")
+    orders: list["Order"] = Relationship(back_populates="client")
 
 
 class Product(SQLModel, table=True):
@@ -37,6 +44,6 @@ class Order(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True, index=True)
     status: OrderStatus = Field(default=OrderStatus.PENDING.value)
-    user_id: int = Field(foreign_key="users.id")
+    client_id: int = Field(foreign_key="clients.id")
 
-    user: "User" = Relationship(back_populates="orders")
+    client: "Client" = Relationship(back_populates="orders")
