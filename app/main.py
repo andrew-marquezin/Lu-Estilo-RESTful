@@ -1,9 +1,11 @@
 from typing import Annotated
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Depends
-from sqlmodel import Session
+from fastapi import Depends, FastAPI
+from sqlmodel import Session, select
 from app.db import create_db_and_tables, get_session
+from app.auth.routes import router as auth_router
+from app.models.tables import User
 
 
 SessionDep = Annotated[Session, Depends(get_session)]
@@ -16,9 +18,23 @@ async def lifespan(app):
     yield
     # Cleanup code
 
+
 app = FastAPI(lifespan=lifespan)
 
+app.include_router(auth_router, prefix="/auth")
 
-@app.get("/")
-def read_root():
-    return {"Hello": "World"}
+
+# @app.post("/users")
+# async def create_user(user: dict,
+#                       session: SessionDep):
+#     db_user = User(**user)
+#     session.add(db_user)
+#     session.commit()
+#     session.refresh(db_user)
+#     return db_user
+
+
+@app.get("/users")
+async def read_user(session: SessionDep):
+    users = session.exec(select(User)).all()
+    return users

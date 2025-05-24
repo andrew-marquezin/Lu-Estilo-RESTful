@@ -1,7 +1,7 @@
 import os
 
 from sqlmodel import create_engine, Session
-import app.models as models
+import app.models.tables as models
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 

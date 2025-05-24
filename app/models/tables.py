@@ -1,28 +1,27 @@
 from typing import Optional
 from decimal import Decimal
 from datetime import date
-from enum import Enum
 
 from sqlmodel import SQLModel, Field, Relationship
 
-
-class OrderStatus(Enum):
-    PENDING = "pending"
-    IN_PROGRESS = "in_progress"
-    COMPLETED = "completed"
-    CANCELED = "canceled"
+from app.models.schemas import OrderStatus
 
 
-class Client(SQLModel, table=True):
+class User(SQLModel, table=True):
+    __tablename__ = "users"
+
     id: Optional[int] = Field(default=None, primary_key=True, index=True)
     name: str
     email: str
     cpf: str
+    hashed_password: str
 
-    orders: list["Order"] = Relationship(back_populates="client")
+    orders: list["Order"] = Relationship(back_populates="user")
 
 
 class Product(SQLModel, table=True):
+    __tablename__ = "products"
+
     barcode: str = Field(primary_key=True, index=True)
     description: str
     price: Decimal = Field(default=0, max_digits=19, decimal_places=4)
@@ -34,8 +33,10 @@ class Product(SQLModel, table=True):
 
 
 class Order(SQLModel, table=True):
+    __tablename__ = "orders"
+
     id: Optional[int] = Field(default=None, primary_key=True, index=True)
     status: OrderStatus = Field(default=OrderStatus.PENDING.value)
-    client_id: int = Field(foreign_key="client.id")
+    user_id: int = Field(foreign_key="users.id")
 
-    client: "Client" = Relationship(back_populates="orders")
+    user: "User" = Relationship(back_populates="orders")
