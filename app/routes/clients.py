@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException, Query, Depends
 from fastapi_pagination import add_pagination, Page
 from fastapi_pagination.ext.sqlmodel import paginate
 from sqlmodel import Session, select
+
 from app.db import get_session
 from app.models.tables import Client
 
