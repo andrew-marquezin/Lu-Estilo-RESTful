@@ -23,7 +23,8 @@ class Client(SQLModel, table=True):
     email: str
     cpf: str
 
-    orders: list["Order"] = Relationship(back_populates="client")
+    orders: list["Order"] = Relationship(
+        back_populates="client", cascade_delete=True)
 
 
 class Product(SQLModel, table=True):
@@ -49,7 +50,8 @@ class Order(SQLModel, table=True):
     updated_at: datetime = Field(default=datetime.now(timezone.utc))
     client_id: int = Field(foreign_key="clients.id")
 
-    # items: list["OrderItem"] = Relationship(back_populates="order")
+    items: list["OrderItem"] = Relationship(
+        back_populates="order", cascade_delete=True)
     client: "Client" = Relationship(back_populates="orders")
 
 
@@ -61,5 +63,4 @@ class OrderItem(SQLModel, table=True):
     product_id: str = Field(foreign_key="products.barcode")
     quantity: int
 
-    # order: "Order" = Relationship(back_populates="items")
-    # product: "Product" = Relationship(back_populates="items")
+    order: "Order" = Relationship(back_populates="items")

@@ -5,10 +5,15 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi_pagination import Page, add_pagination
 from fastapi_pagination.ext.sqlmodel import paginate
 from sqlmodel import Session, select
+from sqlalchemy.orm import selectinload
 
 from app.db import get_session
 from app.models.tables import Order, Product, OrderItem
-from app.models.schemas import OrderCreate
+from app.models.schemas import (OrderCreate,
+                                OrderItemCreate,
+                                OrderResponse,
+                                OrderReadWithItems,
+                                OrderUpdate)
 
 
 SessionDep = Annotated[Session, Depends(get_session)]
@@ -16,32 +21,37 @@ SessionDep = Annotated[Session, Depends(get_session)]
 router = APIRouter(tags=["orders"])
 
 
-@router.post("/")
+def check_product_availability_and_stock(
+        item: OrderItemCreate, session: SessionDep):
+    if item.quantity <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Quantity must be greater than zero"
+        )
+    product = session.exec(
+        select(Product).where(Product.barcode == item.product_id)
+    ).first()
+    if not product or not product.available:
+        raise HTTPException(
+            status_code=404,
+            detail=f"""Product with barcode {item.product_id}
+            not found or not available"""
+        )
+    if product.stock < item.quantity:
+        raise HTTPException(
+            status_code=400,
+            detail=f"""Insufficient stock for product
+            '{product.name}' (barcode: {item.product_id})"""
+        )
+
+
+@router.post("/", response_model=OrderResponse)
 async def create_order(
     order_data: OrderCreate,
     session: SessionDep
 ):
     for item in order_data.items:
-        if item.quantity <= 0:
-            raise HTTPException(
-                status_code=400,
-                detail="Quantity must be greater than zero"
-            )
-        product = session.exec(
-            select(Product).where(Product.barcode == item.product_id)
-        ).first()
-        if not product or not product.available:
-            raise HTTPException(
-                status_code=404,
-                detail=f"""Product with barcode {item.product_id}
-                not found or not available"""
-            )
-        if product.stock < item.quantity:
-            raise HTTPException(
-                status_code=400,
-                detail=f"""Insufficient stock for product
-                '{product.name}' (barcode: {item.product_id})"""
-            )
+        check_product_availability_and_stock(item, session)
 
     db_order = Order(
         client_id=order_data.client_id,
@@ -65,7 +75,7 @@ async def create_order(
     return {"detail": "Order created successfully", "order_id": db_order.id}
 
 
-@router.get("/", response_model=Page[Order])
+@router.get("/", response_model=Page[OrderReadWithItems])
 async def read_orders(
     session: SessionDep,
     min_creation_date: Optional[date] = Query(None),
@@ -75,7 +85,7 @@ async def read_orders(
     client_id: Optional[int] = Query(None),
     id: Optional[int] = Query(None),
 ):
-    query = select(Order).disticnt()
+    query = select(Order).distinct()
 
     if section:
         query = (
@@ -98,7 +108,7 @@ async def read_orders(
     return paginate(session, query)
 
 
-@router.get("/{id}", response_model=Order)
+@router.get("/{id}", response_model=OrderReadWithItems)
 async def read_one_order(id: int, session: SessionDep):
     order = session.exec(select(Order).where(
         Order.id == id)).first()
@@ -113,19 +123,38 @@ async def read_one_order(id: int, session: SessionDep):
 @router.put("/{id}")
 async def update_order(
     id: str,
-    order: dict,
+    order: OrderUpdate,
     session: SessionDep
 ):
     db_order = session.exec(select(Order).where(
-        order.id == id)).first()
+        order.id == id).options(selectinload(Order.items))).first()
     if not db_order:
         raise HTTPException(
             status_code=404,
             detail="order not found"
         )
 
-    for key, value in order.items():
-        setattr(db_order, key, value)
+    if order.client_id:
+        db_order.client_id = order.client_id
+    if order.status:
+        db_order.status = order.status
+        if order.status == "CANCELED":
+            for item in db_order.items:
+                product = session.exec(
+                    select(Product).where(Product.barcode == item.product_id)
+                ).first()
+                product.stock += item.quantity
+                session.add(product)
+
+    if order.items is not None:
+        db_order.items = []
+        for item in order.items:
+            check_product_availability_and_stock(item, session)
+            db_order.items.append(OrderItem(
+                product_id=item.product_id,
+                quantity=item.quantity
+            ))
+
     db_order.updated_at = datetime.now(timezone.utc)
     session.add(db_order)
     session.commit()

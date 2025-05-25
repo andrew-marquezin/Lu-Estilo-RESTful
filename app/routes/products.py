@@ -8,6 +8,7 @@ from sqlmodel import Session, select
 
 from app.db import get_session
 from app.models.tables import Product
+from app.models.schemas import ProductCreate
 
 
 SessionDep = Annotated[Session, Depends(get_session)]
@@ -17,10 +18,29 @@ router = APIRouter(tags=["products"])
 
 @router.post("/")
 async def create_product(
-    product: dict,
+    product: ProductCreate,
     session: SessionDep
 ):
-    db_product = Product(**product)
+    existing_product = session.exec(
+        select(Product).where(Product.barcode == product.barcode)).first()
+    if existing_product:
+        raise HTTPException(
+            status_code=400,
+            detail="This barcode is already registered"
+        )
+
+    db_product = Product(
+        barcode=product.barcode,
+        name=product.name,
+        description=product.description,
+        category=product.category,
+        price=product.price,
+        stock=product.stock,
+        available=product.available,
+        section=product.section,
+        expiration_date=product.expiration_date,
+    )
+
     session.add(db_product)
     session.commit()
     session.refresh(db_product)

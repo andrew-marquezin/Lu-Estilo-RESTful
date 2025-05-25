@@ -4,10 +4,13 @@ from fastapi import APIRouter, HTTPException, Query, Depends
 from fastapi_pagination import add_pagination, Page
 from fastapi_pagination.ext.sqlmodel import paginate
 from sqlmodel import Session, select
+from sqlalchemy.orm import selectinload
 
 from app.db import get_session
 from app.models.tables import Client
-from app.models.schemas import CreateClient, UpdateClient
+from app.models.schemas import (CreateClient,
+                                UpdateClient,
+                                ClientWithOrders)
 
 
 SessionDep = Annotated[Session, Depends(get_session)]
@@ -64,9 +67,13 @@ async def read_clients(
     return paginate(session, query)
 
 
-@router.get("/{id}", response_model=Client)
+@router.get("/{id}", response_model=ClientWithOrders)
 async def read_one_client(id: int, session: SessionDep):
-    client = session.exec(select(Client).where(Client.id == id)).first()
+    client = session.exec(
+        select(Client).where(Client.id == id).options(
+            selectinload(Client.orders)
+        )
+    ).first()
     if not client:
         raise HTTPException(
             status_code=404,
