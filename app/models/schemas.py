@@ -35,3 +35,4 @@ class OrderItemCreate(SQLModel):
 
 class OrderCreate(SQLModel):
     items: list[OrderItemCreate]
+    client_id: int

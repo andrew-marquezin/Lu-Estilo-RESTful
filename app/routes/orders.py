@@ -7,7 +7,8 @@ from fastapi_pagination.ext.sqlmodel import paginate
 from sqlmodel import Session, select
 
 from app.db import get_session
-from app.models.tables import Order
+from app.models.tables import Order, Product, OrderItem
+from app.models.schemas import OrderCreate
 
 
 SessionDep = Annotated[Session, Depends(get_session)]
@@ -17,14 +18,51 @@ router = APIRouter(tags=["orders"])
 
 @router.post("/")
 async def create_order(
-    order: dict,
+    order_data: OrderCreate,
     session: SessionDep
 ):
-    db_order = Order(**order)
+    for item in order_data.items:
+        if item.quantity <= 0:
+            raise HTTPException(
+                status_code=400,
+                detail="Quantity must be greater than zero"
+            )
+        product = session.exec(
+            select(Product).where(Product.barcode == item.product_id)
+        ).first()
+        if not product or not product.available:
+            raise HTTPException(
+                status_code=404,
+                detail=f"""Product with barcode {item.product_id}
+                not found or not available"""
+            )
+        if product.stock < item.quantity:
+            raise HTTPException(
+                status_code=400,
+                detail=f"""Insufficient stock for product
+                '{product.name}' (barcode: {item.product_id})"""
+            )
+
+    db_order = Order(
+        client_id=order_data.client_id,
+    )
     session.add(db_order)
     session.commit()
     session.refresh(db_order)
-    return db_order
+
+    for item in order_data.items:
+        product = session.exec(
+            select(Product).where(Product.barcode == item.product_id)
+        ).first()
+        order_item = OrderItem(
+            order_id=db_order.id,
+            product_id=item.product_id,
+            quantity=item.quantity)
+        session.add(order_item)
+        product.stock -= item.quantity
+
+    session.commit()
+    return {"detail": "Order created successfully", "order_id": db_order.id}
 
 
 @router.get("/", response_model=Page[Order])
@@ -33,11 +71,18 @@ async def read_orders(
     min_creation_date: Optional[date] = Query(None),
     max_creation_date: Optional[date] = Query(None),
     status: Optional[str] = Query(None),
+    section: Optional[str] = Query(None),
     client_id: Optional[int] = Query(None),
-    product_section: Optional[str] = Query(None),
     id: Optional[int] = Query(None),
 ):
-    query = select(Order)
+    query = select(Order).disticnt()
+
+    if section:
+        query = (
+            query.join(Order.items)
+            .join(OrderItem.product)
+            .where(Product.section == section)
+        )
 
     if status:
         query = query.where(Order.status == status)
@@ -47,8 +92,6 @@ async def read_orders(
         query = query.where(Order.created_at <= max_creation_date)
     if client_id:
         query = query.where(Order.client_id == client_id)
-    if product_section:
-        query = query.where(Order.product_section == product_section)
     if id:
         query = query.where(Order.id == id)
 
