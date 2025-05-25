@@ -1,6 +1,6 @@
 from typing import Optional
 from decimal import Decimal
-from datetime import date
+from datetime import date, datetime, timezone
 
 from sqlmodel import SQLModel, Field, Relationship
 
@@ -35,7 +35,7 @@ class Product(SQLModel, table=True):
     category: str
     available: bool = Field(default=True)
     stock: int = Field(default=0)
-    session: str
+    section: str
     expiration_date: date = Field(default=None)
 
 
@@ -44,6 +44,18 @@ class Order(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True, index=True)
     status: OrderStatus = Field(default=OrderStatus.PENDING.value)
+    created_at: datetime = Field(default=datetime.now(timezone.utc))
+    updated_at: datetime = Field(default=datetime.now(timezone.utc))
+    product_section: str
     client_id: int = Field(foreign_key="clients.id")
 
     client: "Client" = Relationship(back_populates="orders")
+
+
+class OrderItem(SQLModel, table=True):
+    __tablename__ = "order_items"
+
+    id: Optional[int] = Field(default=None, primary_key=True, index=True)
+    order_id: int = Field(foreign_key="order.id")
+    product_id: str = Field(foreign_key="products.barcode")
+    quantity: int

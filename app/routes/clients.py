@@ -7,6 +7,7 @@ from sqlmodel import Session, select
 
 from app.db import get_session
 from app.models.tables import Client
+from app.models.schemas import CreateClient, UpdateClient
 
 
 SessionDep = Annotated[Session, Depends(get_session)]
@@ -16,10 +17,31 @@ router = APIRouter(tags=["clients"])
 
 @router.post("/", response_model=Client)
 async def create_client(
-        client: dict,
+        client: CreateClient,
         session: SessionDep
 ):
-    db_client = Client(**client)
+    existing_client = session.exec(
+        select(Client).where(Client.email == client.email)).first()
+    if existing_client:
+        raise HTTPException(
+            status_code=400,
+            detail="This email is already registered"
+        )
+
+    existing_client = session.exec(
+        select(Client).where(Client.cpf == client.cpf)).first()
+    if existing_client:
+        raise HTTPException(
+            status_code=400,
+            detail="This CPF is already registered"
+        )
+
+    db_client = Client(
+        name=client.name,
+        email=client.email,
+        cpf=client.cpf
+    )
+
     session.add(db_client)
     session.commit()
     session.refresh(db_client)
@@ -54,7 +76,7 @@ async def read_one_client(id: int, session: SessionDep):
 
 
 @router.put("/{id}")
-async def update_client(id: int, client: dict, session: SessionDep):
+async def update_client(id: int, client: UpdateClient, session: SessionDep):
     db_client = session.exec(select(Client).where(Client.id == id)).first()
     if not db_client:
         raise HTTPException(
@@ -73,7 +95,8 @@ async def update_client(id: int, client: dict, session: SessionDep):
 
 @router.delete("/{id}")
 async def delete_client(id: int, session: SessionDep):
-    db_client = session.exec(select(Client).where(Client.id == id)).first()
+    db_client = session.exec(
+        select(Client).where(Client.id == id)).first()
     if not db_client:
         raise HTTPException(
             status_code=404,
@@ -83,6 +106,5 @@ async def delete_client(id: int, session: SessionDep):
     session.delete(db_client)
     session.commit()
     return {"detail": "Client deleted successfully"}
-
 
 add_pagination(router)

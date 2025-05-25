@@ -20,3 +20,18 @@ class CreateClient(SQLModel):
     name: str
     email: EmailStr
     cpf: str
+
+
+class UpdateClient(SQLModel):
+    name: str | None = None
+    email: EmailStr | None = None
+    cpf: str | None = None
+
+
+class OrderItemCreate(SQLModel):
+    product_id: str
+    quantity: int
+
+
+class OrderCreate(SQLModel):
+    items: list[OrderItemCreate]
