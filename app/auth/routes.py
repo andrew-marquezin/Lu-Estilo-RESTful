@@ -1,15 +1,20 @@
 from datetime import timedelta
+
 from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel import Session, select
 
-from app.auth.dependencies import authenticate_user, get_current_user
-from app.auth.schemas import Token
+from app.auth.dependencies import (
+    authenticate_user,
+    get_user_from_token
+)
+from app.auth.schemas import Token, TokenPair
 from app.auth.utils import (
-    ACCESS_TOKEN_EXPIRE_MINUTES,
     create_access_token,
+    create_refresh_token,
     get_password_hash,
+    ACCESS_TOKEN_EXPIRE_MINUTES
 )
 from app.db import get_session
 from app.models.schemas import CreateUser
@@ -46,7 +51,7 @@ async def register_user(
     return db_user
 
 
-@router.post("/token", response_model=Token)
+@router.post("/token", response_model=TokenPair)
 async def login_for_access_token(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     session: SessionDep
@@ -58,13 +63,32 @@ async def login_for_access_token(
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    access_token = create_access_token(data={"sub": user.email})
+    refresh_token = create_refresh_token(data={"sub": user.email})
+    return TokenPair(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        token_type="bearer"
+    )
+
+
+@router.post("/refresh-token", response_model=Token)
+async def refresh_access_token(
+    current_user: Annotated[User, Depends(
+        get_user_from_token("refresh_token"))]
+):
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": user.email}, expires_delta=access_token_expires)
-    return Token(access_token=access_token, token_type="bearer")
+        data={"sub": current_user.email}, expires_delta=access_token_expires
+    )
+    return Token(
+        access_token=access_token,
+        token_type="bearer"
+    )
 
 
 @router.get("/users/me")
-async def read_users_me(current_user: Annotated[User,
-                                                Depends(get_current_user)]):
+async def read_users_me(
+    current_user: Annotated[User, Depends(get_user_from_token("access_token"))]
+):
     return current_user
