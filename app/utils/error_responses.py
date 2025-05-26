@@ -46,3 +46,17 @@ def barcode_already_exists(barcode: str) -> HTTPException:
         status_code=400,
         detail=f"Barcode '{barcode}' is already registered"
     )
+
+
+def product_not_found(barcode: str) -> HTTPException:
+    return HTTPException(
+        status_code=404,
+        detail=f"Product with barcode '{barcode}' not found"
+    )
+
+
+def insufficient_stock(barcode: str, name: str) -> HTTPException:
+    return HTTPException(
+        status_code=400,
+        detail=f"Insufficient stock for product '{barcode}'"
+    )

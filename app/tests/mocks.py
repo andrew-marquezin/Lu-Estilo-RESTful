@@ -29,3 +29,13 @@ create_mock_client = {
     "email": "test.client@example.com",
     "cpf": "12345678901",
 }
+
+create_mock_order = {
+    "client_id": 1,
+    "items": [
+        {
+            "product_id": "3210987654321",
+            "quantity": 2
+        }
+    ]
+}

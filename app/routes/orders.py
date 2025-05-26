@@ -1,17 +1,17 @@
 from typing import Annotated, Optional
 from datetime import date, datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from fastapi_pagination import Page, add_pagination
 from fastapi_pagination.ext.sqlmodel import paginate
 from sqlmodel import Session, select
 from sqlalchemy.orm import selectinload
 
+from app.utils import error_responses
 from app.db import get_session
-from app.models.tables import Order, Product, OrderItem
+from app.models.tables import Order, Product, OrderItem, Client
 from app.models.schemas import (OrderCreate,
                                 OrderItemCreate,
-                                OrderResponse,
                                 OrderReadWithItems,
                                 OrderStatus)
 
@@ -24,32 +24,30 @@ router = APIRouter(tags=["orders"])
 def check_product_availability_and_stock(
         item: OrderItemCreate, session: SessionDep):
     if item.quantity <= 0:
-        raise HTTPException(
-            status_code=400,
-            detail="Quantity must be greater than zero"
-        )
+        raise error_responses.EXCEPTION_400
     product = session.exec(
         select(Product).where(Product.barcode == item.product_id)
     ).first()
     if not product or not product.available:
-        raise HTTPException(
-            status_code=404,
-            detail=f"""Product with barcode {item.product_id}
-            not found or not available"""
-        )
+        raise error_responses.product_not_found(item.product_id)
     if product.stock < item.quantity:
-        raise HTTPException(
-            status_code=400,
-            detail=f"""Insufficient stock for product
-            '{product.name}' (barcode: {item.product_id})"""
+        raise error_responses.insufficient_stock(
+            product.barcode, product.name
         )
 
 
-@router.post("/", response_model=OrderResponse)
+@router.post("/", status_code=201)
 async def create_order(
     order_data: OrderCreate,
     session: SessionDep
 ):
+    client = session.exec(
+        select(Client).where(Client.id == order_data.client_id)
+    ).first()
+
+    if not client:
+        raise error_responses.EXCEPTION_404
+
     for item in order_data.items:
         check_product_availability_and_stock(item, session)
 
@@ -73,7 +71,7 @@ async def create_order(
         product.available = False if product.stock == 0 else product.available
 
     session.commit()
-    return {"detail": "Order created successfully", "order_id": db_order.id}
+    return {"order_id": db_order.id}
 
 
 @router.get("/", response_model=Page[OrderReadWithItems])
@@ -114,10 +112,7 @@ async def read_one_order(id: int, session: SessionDep):
     order = session.exec(select(Order).where(
         Order.id == id)).first()
     if not order:
-        raise HTTPException(
-            status_code=404,
-            detail="order not found"
-        )
+        raise error_responses.EXCEPTION_404
     return order
 
 
@@ -130,10 +125,7 @@ async def update_order(
     db_order = session.exec(select(Order).where(
         Order.id == id).options(selectinload(Order.items))).first()
     if not db_order:
-        raise HTTPException(
-            status_code=404,
-            detail="order not found"
-        )
+        raise error_responses.EXCEPTION_404
 
     if status:
         db_order.status = status
@@ -153,15 +145,12 @@ async def update_order(
     return db_order
 
 
-@router.delete("/{id}")
+@router.delete("/{id}", status_code=204)
 async def delete_order(id: str, session: SessionDep):
     db_order = session.exec(select(Order).where(
         Order.id == id)).first()
     if not db_order:
-        raise HTTPException(
-            status_code=404,
-            detail="order not found"
-        )
+        raise error_responses.EXCEPTION_404
 
     session.delete(db_order)
     session.commit()
