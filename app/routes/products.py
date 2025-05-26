@@ -6,6 +6,7 @@ from fastapi_pagination import Page, add_pagination
 from fastapi_pagination.ext.sqlmodel import paginate
 from sqlmodel import Session, select
 
+from app.auth.dependencies import require_admin
 from app.db import get_session
 from app.models.tables import Product
 from app.models.schemas import ProductCreate, ProductRead
@@ -20,7 +21,8 @@ router = APIRouter(tags=["products"])
 @router.post("/", status_code=status.HTTP_201_CREATED)
 async def create_product(
     product: ProductCreate,
-    session: SessionDep
+    session: SessionDep,
+    user=Depends(require_admin)
 ):
     existing_product = session.exec(
         select(Product).where(Product.barcode == product.barcode)).first()
@@ -70,7 +72,8 @@ async def read_one_product(barcode: str, session: SessionDep):
 async def update_product(
     barcode: str,
     product: dict,
-    session: SessionDep
+    session: SessionDep,
+    user=Depends(require_admin)
 ):
     db_product = session.exec(select(Product).where(
         Product.barcode == barcode)).first()
@@ -87,7 +90,11 @@ async def update_product(
 
 
 @router.delete("/{barcode}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_product(barcode: str, session: SessionDep):
+async def delete_product(
+    barcode: str,
+    session: SessionDep,
+    user=Depends(require_admin)
+):
     db_product = session.exec(select(Product).where(
         Product.barcode == barcode)).first()
     if not db_product:

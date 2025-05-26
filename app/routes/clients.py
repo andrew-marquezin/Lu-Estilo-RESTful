@@ -6,6 +6,7 @@ from fastapi_pagination.ext.sqlmodel import paginate
 from sqlmodel import Session, select
 from sqlalchemy.orm import selectinload
 
+from app.auth.dependencies import require_admin
 from app.utils import error_responses
 from app.db import get_session
 from app.models.tables import Client
@@ -21,7 +22,8 @@ router = APIRouter(tags=["clients"])
 @router.post("/", status_code=status.HTTP_201_CREATED)
 async def create_client(
         client: CreateClient,
-        session: SessionDep
+        session: SessionDep,
+        user=Depends(require_admin)
 ):
     if client.name == "" or client.email == "" or client.cpf == "":
         raise error_responses.EXCEPTION_422
@@ -77,7 +79,12 @@ async def read_one_client(id: int, session: SessionDep):
 
 
 @router.put("/{id}")
-async def update_client(id: int, client: dict, session: SessionDep):
+async def update_client(
+    id: int,
+    client: dict,
+    session: SessionDep,
+    user=Depends(require_admin)
+):
     db_client = session.exec(select(Client).where(Client.id == id)).first()
     if not db_client:
         raise error_responses.EXCEPTION_404
@@ -92,7 +99,11 @@ async def update_client(id: int, client: dict, session: SessionDep):
 
 
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_client(id: int, session: SessionDep):
+async def delete_client(
+    id: int,
+    session: SessionDep,
+    user=Depends(require_admin)
+):
     db_client = session.exec(
         select(Client).where(Client.id == id)).first()
     if not db_client:

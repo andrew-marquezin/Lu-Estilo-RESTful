@@ -7,6 +7,7 @@ from fastapi_pagination.ext.sqlmodel import paginate
 from sqlmodel import Session, select
 from sqlalchemy.orm import selectinload
 
+from app.auth.dependencies import require_admin
 from app.utils import error_responses
 from app.db import get_session
 from app.models.tables import Order, Product, OrderItem, Client
@@ -39,7 +40,8 @@ def check_product_availability_and_stock(
 @router.post("/", status_code=201)
 async def create_order(
     order_data: OrderCreate,
-    session: SessionDep
+    session: SessionDep,
+    user=Depends(require_admin)
 ):
     client = session.exec(
         select(Client).where(Client.id == order_data.client_id)
@@ -120,7 +122,8 @@ async def read_one_order(id: int, session: SessionDep):
 async def update_order(
     id: str,
     status: OrderStatus,
-    session: SessionDep
+    session: SessionDep,
+    user=Depends(require_admin)
 ):
     db_order = session.exec(select(Order).where(
         Order.id == id).options(selectinload(Order.items))).first()
@@ -146,7 +149,11 @@ async def update_order(
 
 
 @router.delete("/{id}", status_code=204)
-async def delete_order(id: str, session: SessionDep):
+async def delete_order(
+    id: str,
+    session: SessionDep,
+    user=Depends(require_admin)
+):
     db_order = session.exec(select(Order).where(
         Order.id == id)).first()
     if not db_order:
