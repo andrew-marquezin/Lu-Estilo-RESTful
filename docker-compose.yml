@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
 
   web:
@@ -26,6 +24,18 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ./app:/app
+    environment:
+      - DATABASE_URL=postgresql://admin:password@db:5432/mydb
+    depends_on:
+      - db
+    command: pytest
 
   pgadmin:
     image: dpage/pgadmin4

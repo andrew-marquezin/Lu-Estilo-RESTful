@@ -1,7 +1,7 @@
 from typing import Annotated, Optional
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi_pagination import Page, add_pagination
 from fastapi_pagination.ext.sqlmodel import paginate
 from sqlmodel import Session, select
@@ -9,6 +9,7 @@ from sqlmodel import Session, select
 from app.db import get_session
 from app.models.tables import Product
 from app.models.schemas import ProductCreate, ProductRead
+from app.utils import error_responses
 
 
 SessionDep = Annotated[Session, Depends(get_session)]
@@ -16,7 +17,7 @@ SessionDep = Annotated[Session, Depends(get_session)]
 router = APIRouter(tags=["products"])
 
 
-@router.post("/")
+@router.post("/", status_code=status.HTTP_201_CREATED)
 async def create_product(
     product: ProductCreate,
     session: SessionDep
@@ -24,23 +25,9 @@ async def create_product(
     existing_product = session.exec(
         select(Product).where(Product.barcode == product.barcode)).first()
     if existing_product:
-        raise HTTPException(
-            status_code=400,
-            detail="This barcode is already registered"
-        )
+        raise error_responses.barcode_already_exists(product.barcode)
 
-    db_product = Product(
-        barcode=product.barcode,
-        name=product.name,
-        description=product.description,
-        category=product.category,
-        price=product.price,
-        stock=product.stock,
-        available=product.available,
-        section=product.section,
-        expiration_date=product.expiration_date,
-        image_url=product.image_url
-    )
+    db_product = Product(**product.model_dump())
 
     session.add(db_product)
     session.commit()
@@ -74,11 +61,8 @@ async def read_products(
 async def read_one_product(barcode: str, session: SessionDep):
     product = session.exec(select(Product).where(
         Product.barcode == barcode)).first()
-    if not Product:
-        raise HTTPException(
-            status_code=404,
-            detail="Product not found"
-        )
+    if not product:
+        raise error_responses.EXCEPTION_404
     return product
 
 
@@ -91,10 +75,7 @@ async def update_product(
     db_product = session.exec(select(Product).where(
         Product.barcode == barcode)).first()
     if not db_product:
-        raise HTTPException(
-            status_code=404,
-            detail="Product not found"
-        )
+        raise error_responses.EXCEPTION_404
 
     for key, value in product.items():
         setattr(db_product, key, value)
@@ -105,7 +86,7 @@ async def update_product(
     return db_product
 
 
-@router.delete("/{barcode}")
+@router.delete("/{barcode}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_product(barcode: str, session: SessionDep):
     db_product = session.exec(select(Product).where(
         Product.barcode == barcode)).first()

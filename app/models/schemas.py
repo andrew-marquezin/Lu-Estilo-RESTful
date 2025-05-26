@@ -15,14 +15,27 @@ class OrderStatus(Enum):
 
 class CreateUser(BaseModel):
     email: EmailStr
-    password: str
+    password: str = Field(min_length=8, max_length=20)
     is_admin: Optional[bool] = False
 
 
 class CreateClient(BaseModel):
-    name: str
+    name: str = Field(max_length=100, min_length=1)
     email: EmailStr
     cpf: str = Field(max_length=11, pattern=r"^\d{11}$")
+
+
+class ProductCreate(BaseModel):
+    barcode: str = Field(min_length=13, max_length=13, pattern=r"^\d{13}$")
+    name: str
+    description: str
+    price: Decimal
+    category: str
+    available: Optional[bool] = False
+    stock: Optional[int] = 0
+    section: str
+    expiration_date: Optional[date] = None
+    image_url: Optional[str] = None
 
 
 class UpdateClient(BaseModel):
@@ -58,19 +71,6 @@ class OrderCreate(BaseModel):
 class OrderResponse(BaseModel):
     detail: str
     order_id: int
-
-
-class ProductCreate(BaseModel):
-    barcode: str = Field(min_length=13, max_length=13, pattern=r"^\d{13}$")
-    name: str
-    description: str
-    price: Decimal
-    category: str
-    available: Optional[bool] = False
-    stock: Optional[int] = 0
-    section: str
-    expiration_date: Optional[date] = None
-    image_url: Optional[str] = None
 
 
 class ProductUpdate(BaseModel):
