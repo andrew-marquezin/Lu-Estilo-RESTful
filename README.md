@@ -1,4 +1,4 @@
-# technical-octo-friend
+# Lu Estilo RESTful
 RESTful FastAPI Lu Estilo (Integração com Whatsapp)
 
 ## Pré requisitos:
