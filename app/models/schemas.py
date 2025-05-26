@@ -16,6 +16,7 @@ class OrderStatus(Enum):
 class CreateUser(BaseModel):
     email: EmailStr
     password: str
+    is_admin: Optional[bool] = False
 
 
 class CreateClient(BaseModel):
@@ -65,10 +66,23 @@ class ProductCreate(BaseModel):
     description: str
     price: Decimal
     category: str
-    available: Optional[bool] = True
+    available: Optional[bool] = False
     stock: Optional[int] = 0
     section: str
     expiration_date: Optional[date] = None
+    image_url: Optional[str] = None
+
+
+class ProductUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    price: Optional[Decimal] = None
+    category: Optional[str] = None
+    available: Optional[bool] = None
+    stock: Optional[int] = None
+    section: Optional[str] = None
+    expiration_date: Optional[date] = None
+    image_url: Optional[str] = None
 
 
 class OrderReadWithItems(BaseModel):
@@ -96,3 +110,4 @@ class ProductRead(BaseModel):
     stock: int
     section: str
     expiration_date: Optional[date] = None
+    image_url: Optional[str] = None

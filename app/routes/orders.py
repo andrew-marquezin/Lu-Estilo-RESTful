@@ -13,7 +13,7 @@ from app.models.schemas import (OrderCreate,
                                 OrderItemCreate,
                                 OrderResponse,
                                 OrderReadWithItems,
-                                OrderUpdate)
+                                OrderStatus)
 
 
 SessionDep = Annotated[Session, Depends(get_session)]
@@ -70,6 +70,7 @@ async def create_order(
             quantity=item.quantity)
         session.add(order_item)
         product.stock -= item.quantity
+        product.available = False if product.stock == 0 else product.available
 
     session.commit()
     return {"detail": "Order created successfully", "order_id": db_order.id}
@@ -123,37 +124,27 @@ async def read_one_order(id: int, session: SessionDep):
 @router.put("/{id}")
 async def update_order(
     id: str,
-    order: OrderUpdate,
+    status: OrderStatus,
     session: SessionDep
 ):
     db_order = session.exec(select(Order).where(
-        order.id == id).options(selectinload(Order.items))).first()
+        Order.id == id).options(selectinload(Order.items))).first()
     if not db_order:
         raise HTTPException(
             status_code=404,
             detail="order not found"
         )
 
-    if order.client_id:
-        db_order.client_id = order.client_id
-    if order.status:
-        db_order.status = order.status
-        if order.status == "CANCELED":
+    if status:
+        db_order.status = status
+        if status == OrderStatus.CANCELED:
             for item in db_order.items:
                 product = session.exec(
                     select(Product).where(Product.barcode == item.product_id)
                 ).first()
                 product.stock += item.quantity
+                product.available = True if product.stock > 0 else False
                 session.add(product)
-
-    if order.items is not None:
-        db_order.items = []
-        for item in order.items:
-            check_product_availability_and_stock(item, session)
-            db_order.items.append(OrderItem(
-                product_id=item.product_id,
-                quantity=item.quantity
-            ))
 
     db_order.updated_at = datetime.now(timezone.utc)
     session.add(db_order)

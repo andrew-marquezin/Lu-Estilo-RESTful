@@ -13,6 +13,7 @@ class User(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True, index=True)
     email: str
     hashed_password: str
+    is_admin: bool = False
 
 
 class Client(SQLModel, table=True):
@@ -35,10 +36,11 @@ class Product(SQLModel, table=True):
     description: str
     price: Decimal = Field(default=0, max_digits=19, decimal_places=4)
     category: str
-    available: bool = Field(default=True)
-    stock: int = Field(default=0)
+    available: bool = False
+    stock: int = 0
     section: str
-    expiration_date: Optional[date] = Field(default=None)
+    expiration_date: Optional[date] = None
+    image_url: Optional[str] = None
 
 
 class Order(SQLModel, table=True):

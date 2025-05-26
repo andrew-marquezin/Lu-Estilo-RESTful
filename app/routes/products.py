@@ -8,7 +8,7 @@ from sqlmodel import Session, select
 
 from app.db import get_session
 from app.models.tables import Product
-from app.models.schemas import ProductCreate
+from app.models.schemas import ProductCreate, ProductRead
 
 
 SessionDep = Annotated[Session, Depends(get_session)]
@@ -39,15 +39,16 @@ async def create_product(
         available=product.available,
         section=product.section,
         expiration_date=product.expiration_date,
+        image_url=product.image_url
     )
 
     session.add(db_product)
     session.commit()
     session.refresh(db_product)
-    return db_product
+    return {"product_id": db_product.barcode}
 
 
-@router.get("/", response_model=Page[Product])
+@router.get("/", response_model=Page[ProductRead])
 async def read_products(
     session: SessionDep,
     category: Optional[str] = None,
@@ -69,7 +70,7 @@ async def read_products(
     return paginate(session, query)
 
 
-@router.get("/{barcode}", response_model=Product)
+@router.get("/{barcode}", response_model=ProductRead)
 async def read_one_product(barcode: str, session: SessionDep):
     product = session.exec(select(Product).where(
         Product.barcode == barcode)).first()
